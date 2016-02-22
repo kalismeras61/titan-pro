@@ -2,7 +2,7 @@
 /**
  * TITAN PRO Mini MVC Framework
  *
- * Titan is a simple mvc application framework for php developers.
+ * Titan is a web application framework for php developers.
  *
  * @author 		Turan Karatuğ - <tkaratug@hotmail.com.tr> - <www.turankaratug.com>
  * @version 	1.0.0
