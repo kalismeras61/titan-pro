@@ -24,6 +24,11 @@ class Router extends App
             $this->setParams($this->url);
         }
 
+        // Composer Autoload
+        if($this->config['composer'] === true) {
+            Import::File('vendor/autoload.php');
+        }
+
         call_user_func_array([$this->controller, $this->action], $this->params);
     }
 
