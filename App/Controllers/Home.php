@@ -11,4 +11,14 @@ class Home extends Controller
         Import::View('Home');
     }
 
+    public function username($name)
+    {
+    	echo $name;
+    }
+
+    public function userage($age)
+    {
+    	echo $age;
+    }
+
 }

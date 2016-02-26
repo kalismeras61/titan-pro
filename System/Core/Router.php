@@ -16,13 +16,63 @@ class Router extends App
         $this->action       = $this->config['default_action'];
         $this->routes       = Import::Config('routes');
 
-        $this->setController($this->url);
+        if($this->run() === false) {
+            $this->setController($this->url);
 
-        $this->setAction($this->url);
+            $this->setAction($this->url);
 
-        $this->setParams($this->url);
+            $this->setParams($this->url);
+        }
 
         call_user_func_array([$this->controller, $this->action], $this->params);
+    }
+
+    /**
+     * Execute the Router
+     * @return boolean
+     */
+    private function run()
+    {
+        $matched = 0;
+        $url = ltrim(str_replace(BASE_DIR,'',$_SERVER['REQUEST_URI']), '/');
+
+        foreach($this->routes as $key => $value) {
+            $key = '/^' . str_replace('/', '\/', $key) . '$/';
+
+            if(preg_match($key, $url)) {
+                $matched++;
+                preg_match_all($key, $url, $matches);
+                array_shift($matches);
+                $target = explode('/', $value);
+
+                if(class_exists('\Titan\Controllers\\' . ucfirst($target[0]))) {
+                    $this->controller = '\Titan\Controllers\\' . ucfirst($target[0]);
+                    $this->controller = new $this->controller;
+                } else {
+                    $data['code'] = 404;
+                    $data['text'] = lang('Errors', 'missing_controller') . ': { ' . $target[0] . ' }';
+                    Import::View('Errors/Error_404', $data);
+                    die();
+                }
+
+                $this->action = $target[1];
+
+                unset($target[0]);
+                unset($target[1]);
+                sort($target);
+
+                foreach($matches as $indis => $match) {
+                    $target[$indis] = $match[0];
+                }
+
+                $this->params = $target ? array_values($target) : [];
+            }
+        }
+
+        if($matched > 0)
+            return true;
+        else
+            return false;
     }
 
     /**
@@ -38,17 +88,12 @@ class Router extends App
                 $this->controller = '\Titan\Controllers\\' . $controller;
                 $this->controller = new $this->controller;
             } else {
-                if(array_key_exists($controller, $this->routes)) {
-                    $route = explode('/', $this->routes[$controller]);
-                    $this->controller = '\Titan\Controllers\\' . $route[0];
-                    $this->controller = new $this->controller;
-                } else {
-                    $data['code'] = 404;
-                    $data['text'] = lang('Errors', 'missing_controller') . ': { ' . $controller . ' }';
-                    Import::View('Errors/Error_404', $data);
-                    die();
-                }
+                $data['code'] = 404;
+                $data['text'] = lang('Errors', 'missing_controller') . ': { ' . $controller . ' }';
+                Import::View('Errors/Error_404', $data);
+                die();
             }
+            unset($this->url[0]);
         } else {
             $this->controller = '\Titan\Controllers\\' . $this->controller;
             $this->controller = new $this->controller;
@@ -74,19 +119,7 @@ class Router extends App
                 }
             }
             unset($this->url[1]);
-        } else {
-            if(isset($url[0])) {
-                if (array_key_exists($this->makeURL($url[0]), $this->routes)) {
-                    $route = explode('/', $this->routes[$this->makeURL($url[0])]);
-                    if (isset($route[1])) {
-                        if (method_exists($this->controller, $route[1])) {
-                            $this->action = $route[1];
-                        }
-                    }
-                }
-            }
         }
-        unset($this->url[0]);
     }
 
     /**

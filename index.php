@@ -13,7 +13,7 @@
 
 // Constants
 define('DS', DIRECTORY_SEPARATOR);
-define('BASE_DIR', '/titanpro');
+define('BASE_DIR', '/');
 define('ROOT_DIR', realpath(dirname(__FILE__)) . DS);
 define('APP_DIR', ROOT_DIR . 'App/');
 define('SYSTEM_DIR', ROOT_DIR . 'System/');
