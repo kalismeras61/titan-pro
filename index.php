@@ -8,7 +8,7 @@
  * @version 	1.0.0
  * @copyright	2016
  * @license		https://opensource.org/licenses/MIT
- * @link 		https://github.com/tkaratug/titan-mvc
+ * @link 		https://github.com/tkaratug/titan-pro
  */
 
 // Constants

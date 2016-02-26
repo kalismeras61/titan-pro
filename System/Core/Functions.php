@@ -126,14 +126,14 @@ if ( ! function_exists('get_error') ) {
     function get_error($lang_file = '', $key = '', $change = '')
     {
         $style = '
-            border:solid 1px #ccc;
-            background:#FEFEFE;
+            border:solid 0px #ccc;
+            background:#EEEEEE;
             padding:10px;
             margin-bottom:10px;
             font-family:Calibri, Tahoma, Arial;
-            color:#666;
+            color:#BC5858;
             text-align:left;
-            font-size:14px;
+            font-size:13px;
         ';
 
         if( ! empty($change) ) {
@@ -142,7 +142,7 @@ if ( ! function_exists('get_error') ) {
 
         $str  = "<div style=\"$style\">";
         $str .= lang($lang_file, $key, $change);
-        $str .= '</div><br>';
+        $str .= '</div>';
 
         return $str;
     }
