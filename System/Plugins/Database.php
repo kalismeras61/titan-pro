@@ -5,465 +5,735 @@ namespace Titan\Plugins;
  * Database Plugin
  */
 
-class Database extends \PDO
+class Database
 {
+	// PDO instance
+	private $pdo 		= null;
 
-	/**
-	 * Built SQL Query
-	 *
-	 * @var
-	 *
-	 */
-	private $sql;
+	// SQL Query
+	private $sql 		= null;
 
-	/**
-	 * Table Name
-	 *
-	 * @var
-	 *
-	 */
-	private $tableName;
+	// Last Statement
+	private $statement 	= null;
 
-	/**
-	 * Condittions
-	 *
-	 * @var
-	 *
-	 */
-	private $where;
+	// Selected Columns
+	private $select 	= '*';
 
-	/**
-	 * Join Rules
-	 *
-	 * @var
-	 *
-	 */
-	private $join;
+	// From Table
+	private $from 		= null;
 
-	/**
-	 * OrderBy Value
-	 *
-	 * @var
-	 *
-	 */
-	private $orderBy;
+	// Where string
+	private $where 		= [];
 
-	/**
-	 * GroupBy Value
-	 *
-	 * @var
-	 *
-	 */
-	private $groupBy;
+	// Join string
+	private $join 		= [];
 
-	/**
-	 * Limit Value
-	 *
-	 * @var
-	 *
-	 */
-	private $limit;
+	// OrderBy string
+	private $order_by 	= [];
 
-	/**
-	 * $_GET[] parameter
-	 *
-	 * @var
-	 *
-	 */
-	private $page;
+	// Having string
+	private $having 	= [];
 
-	/**
-	 * Row Count
-	 *
-	 * @var
-	 *
-	 */
-	private $totalRecord;
+	// groupBy string
+	private $group_by 	= null;
 
-	/**
-	 * Page Count
-	 *
-	 * @var
-	 *
-	 */
-	private $pageCount;
+	// Limit string
+	private $limit 		= null;
 
-	/**
-	 * Pagination Limit
-	 *
-	 * @var
-	 *
-	 */
-	private $paginationLimit;
+	// Total row count
+	private $num_rows 	= 0;
 
-	/**
-	 * HTML generated
-	 *
-	 * @var
-	 *
-	 */
-	private $html;
+	// Last insert id
+	private $insert_id 	= null;
 
-	/**
-	 * BasicDB Constructor
-	 *
-	 * @param	$host
-	 * @param	$dbname
-	 * @param	$username
-	 * @param	$password
-	 * @param 	string $charset
-	 */
-	public function __construct($options = [])
+	// Table prefix
+	private $prefix 	= null;
+
+	// Error
+	private $error 		= null;
+
+	function __construct($config = [])
 	{
-		parent::__construct('mysql:host=' . $options['db_host'] . ';dbname=' . $options['db_name'], $options['db_user'], $options['db_pass']);
-		$this->query('SET CHARACTER SET ' . $options['db_char']);
-		$this->query('SET NAMES ' . $options['db_char']);
-	}
+		$config['db_driver'] 		= (@$config['db_driver']) ? $config['db_driver'] : 'mysql';
+		$config['db_host']			= (@$config['db_host']) ? $config['db_host'] : 'localhost';
+		$config['db_charset']		= (@$config['db_charset']) ? $config['db_charset'] : 'utf8';
+		$config['db_collation']		= (@$config['db_collation']) ? $config['db_collation'] : 'utf8_general_ci';
+		$config['db_prefix']		= (@$config['db_prefix']) ? $config['db_prefix'] : '';
 
-	/**
-	 * Defines select table operation in sql query
-	 *
-	 * @param	$tableName
-	 * @return 	$this
-	 */
-	public function select($columns)
-	{
-		$this->sql = 'SELECT ' . $columns;
+		$this->prefix = $config['db_prefix'];
 
-		return $this;
-	}
+		$dsn = '';
 
-	/**
-	 * Defines select row operation in sql query
-	 *
-	 * @param	$from
-	 * @return 	$this
-	 */
-	public function from($tableName)
-	{
-		$this->sql .= ' FROM `' . $tableName . '`';
-		$this->tableName = $tableName;
-		return $this;
-	}
-
-	/**
-	 * WHERE value at SQL query
-	 *
-	 * @param	$column
-	 * @param	$value
-	 * @param 	string $mark
-	 * @param 	bool $filter
-	 * @return 	$this
-	 */
-	public function where($column, $value = '', $mark = '=', $logical = '&&')
-	{
-		$this->where[] = array(
-			$column,
-			$value,
-			$mark,
-			$logical
-		);
-		return $this;
-	}
-
-	/**
-	 * Defines -or where- operation in sql query
-	 *
-	 * @param	$column
-	 * @param	$value
-	 * @param	$mark
-	 * @return 	$this
-	 */
-	public function or_where($column, $value, $mark = '=')
-	{
-		$this->where($column, $value, $mark, '||');
-		return $this;
-	}
-
-	/**
-	 * Defines -join- operation in sql query
-	 *
-	 * @param	$targetTable
-	 * @param	$joinSql
-	 * @param 	string $joinType
-	 * @return 	$this
-	 */
-	public function join($targetTable, $joinSql, $joinType = 'inner')
-	{
-		$this->join[] = ' ' . strtoupper($joinType) . ' JOIN ' . $targetTable . ' ON ' . sprintf($joinSql, $targetTable, $this->tableName);
-		return $this;
-	}
-
-	/**
-	 * Defines -orderby- operation in sql query
-	 *
-	 * @param	$columnName
-	 * @param 	string $sort
-	 */
-	public function orderby($columnName, $sort = 'ASC')
-	{
-		$this->orderBy = ' ORDER BY ' . $columnName . ' ' . strtoupper($sort);
-		return $this;
-	}
-
-	/**
-	 * Defines -groupby- operation in sql query
-	 *
-	 * @param	$columnName
-	 * @return 	$this
-	 */
-	public function groupby($columnName)
-	{
-		$this->groupBy = ' GROUP BY ' . $columnName;
-		return $this;
-	}
-
-	/**
-	 * Defines -limit- operation in sql query
-	 *
-	 * @param	$start
-	 * @param	$limit
-	 * @return 	$this
-	 */
-	public function limit($start, $limit)
-	{
-		$this->limit = ' LIMIT ' . $start . ',' . $limit;
-		return $this;
-	}
-
-	/**
-	 * Used for running Insert/Update/Select operations.
-	 *
-	 * @param 	bool $single
-	 * @return 	array|mixed
-	 */
-	public function run($single = false)
-	{
-		if ($this->join) {
-			$this->sql .= implode(' ', $this->join);
-			$this->join = null;
-		}
-		$this->get_where();
-		if ($this->groupBy) {
-			$this->sql .= $this->groupBy;
-			$this->groupBy = null;
-		}
-		if ($this->orderBy) {
-			$this->sql .= $this->orderBy;
-			$this->orderBy = null;
-		}
-		if ($this->limit) {
-			$this->sql .= $this->limit;
-			$this->limit = null;
+		if($config['db_driver'] == 'mysql' || $config['db_driver'] == 'pgsql' || $config['db_driver'] == '') {
+			$dsn = $config['db_driver'] . ':host=' . $config['db_host'] . ';dbname=' . $config['db_name'];
+		} elseif($config['db_driver'] == 'sqlite') {
+			$dsn = 'sqlite:' . $config['db_name'];
+		} elseif($config['db_driver'] == 'oracle') {
+			$dsn = 'oci:dbname=' . $config['db_host'] . '/' . $config['db_name'];
 		}
 
-
-		$query = $this->query($this->sql);
-
-		if ($single){
-			return $query->fetch(parent::FETCH_OBJ);
+		try
+		{
+			$this->pdo = new \PDO($dsn, $config['db_user'], $config['db_pass']);
+			$this->pdo->exec("SET NAMES '" . $config['db_charset'] . "' COLLATE '" . $config['db_collation'] . "'");
+			$this->pdo->exec("SET CHARACTER SET '" . $config['db_charset'] . "'");
+			$this->pdo->setAttribute(\PDO::ATTR_DEFAULT_FETCH_MODE, \PDO::FETCH_OBJ);
 		}
-		else{
-			return $query->fetchAll(parent::FETCH_OBJ);
+		catch(\PDOException $e)
+		{
+			die('Cannot connect to Database with PDO.<br /><br />'.$e->getMessage());
 		}
 
+		return $this->pdo;
 	}
 
 	/**
-	 * Runs where operation at query running.
+	 * Defines columns to select
+	 * @param 	$select
+	 * @return 	$this
 	 */
-	private function get_where()
+	public function select($select = null)
 	{
-		if (is_array($this->where) && count($this->where) > 0) {
+		if(!is_null($select))
+			$this->select = $select;
+
+		return $this;
+	}
+
+	/**
+	 * Defines table
+	 * @param 	$from
+	 * @return 	$this
+	 */
+	public function from($from)
+	{
+		if(is_array($from)) {
+			$table = '';
+			foreach($from as $key) {
+				$table .= $this->prefix . $key . ', ';
+			}
+
+			$this->from = rtrim($table, ', ');
+		} else {
+			$this->from = $this->prefix . $from;
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'join' operation
+	 * @param 	$table
+	 * @param 	$op
+	 * @param 	$join
+	 * @return 	$this
+	 */
+	public function join($table, $op, $join = 'INNER')
+	{
+		$this->join[] = ' ' . strtoupper($join) . ' JOIN ' . $this->prefix . $table . ' ON ' . $op;
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'where' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @param 	$mark
+	 * @param 	$logic
+	 * @return 	$this
+	 */
+	public function where($column, $value = '', $mark = '=', $logic = 'AND')
+	{
+		$this->where[] = [
+			'column'	=> $column,
+			'value'		=> $value,
+			'mark'		=> $mark,
+			'logic'		=> $logic
+		];
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'or where' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @param 	$mark
+	 * @return 	$this
+	 */
+	public function or_where($column, $value = '', $mark = '=')
+	{
+		$this->where($column, $value, $mark, 'OR');
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'order by' operation
+	 * @param 	$column
+	 * @param 	$sort
+	 * @return 	$this
+	 */
+	public function order_by($column, $sort = 'asc')
+	{
+		$this->order_by[] = [
+			'column'	=> $column,
+			'sort'		=> $sort
+		];
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'limit' operation
+	 * @param 	$limit
+	 * @param 	$start
+	 * @return 	$this
+	 */
+	public function limit($limit, $start = 0)
+	{
+		$this->limit = ' LIMIT ' . $start . ', ' . $limit;
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'group by' operation
+	 * @param 	$column
+	 * @return 	$this
+	 */
+	public function group_by($column)
+	{
+		$this->group_by = ' GROUP BY ' . $column;
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'having' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @param 	$mark
+	 * @param 	$logic
+	 * @return 	$this
+	 */
+	public function having($column, $value = '', $mark = '=', $logic = 'AND')
+	{
+		$this->having[] = [
+			'column'	=> $column,
+			'value'		=> $value,
+			'mark'		=> $mark,
+			'logic'		=> $logic
+		];
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'or having' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @param 	$mark
+	 * @return 	$this
+	 */
+	public function or_having($column, $value = '', $mark = '=')
+	{
+		$this->having($column, $value, $mark, 'OR');
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'like' opertaion
+	 * @param 	$column
+	 * @param 	$value
+	 * @param 	$logic
+	 * @return 	$this
+	 */
+	public function like($column, $value = '', $logic = 'AND')
+	{
+		$this->where($column, $value, ' LIKE ', $logic);
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'or like' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @return 	$this
+	 */
+	public function or_like($column, $value = '')
+	{
+		$this->like($column, $value, 'OR');
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'not like' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @param 	$logic
+	 * @return 	$this
+	 */
+	public function not_like($column, $value = '', $logic = 'AND')
+	{
+		$this->where($column, $value, ' NOT LIKE ', $logic);
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'or not like' operation
+	 * @param 	$column
+	 * @param 	$value
+	 * @return 	$this
+	 */
+	public function or_not_like($column, $value = '')
+	{
+		$this->not_like($column, $value, 'OR');
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'in' operation
+	 * @param 	$column
+	 * @param 	$list
+	 * @param 	$logic
+	 * @return 	$this
+	 */
+	public function in($column, $list = [], $logic = 'AND')
+	{
+		$in_list = '';
+
+		foreach($list as $element) {
+			$in_list .= $this->escape($element) . ',';
+		}
+
+		$in_list = '(' . rtrim($in_list, ',') . ')';
+
+		$this->where($column, $in_list, ' IN ', $logic);
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'or in' operation
+	 * @param 	$column
+	 * @param 	$list
+	 * @return 	$this
+	 */
+	public function or_in($column, $list = [])
+	{
+		$this->in($column, $list, 'OR');
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'not in' operation
+	 * @param 	$column
+	 * @param 	$list
+	 * @param 	$logic
+	 * @return 	$this
+	 */
+	public function not_in($column, $list = [], $logic = 'AND')
+	{
+		$in_list = '';
+		
+		foreach($list as $element) {
+			$in_list .= $this->escape($element) . ',';
+		}
+
+		$in_list = '(' . rtrim($in_list, ',') . ')';
+
+		$this->where($column, $in_list, ' NOT IN ', $logic);
+
+		return $this;
+	}
+
+	/**
+	 * Defines 'or not in' operation
+	 * @param 	$column
+	 * @param 	$list
+	 * @return 	$this
+	 */
+	public function or_not_in($column, $list = [])
+	{
+		$this->not_in($column, $list, 'OR');
+
+		return $this;
+	}
+
+	/**
+	 * Execute Select statements
+	 * @return 	void
+	 */
+	private function run()
+	{
+		// JOIN
+		if(count($this->join) > 0) {
+			foreach($this->join as $join) {
+				$this->sql .= ' ' . $join;
+			}
+		}
+
+		// WHERE
+		if(count($this->where) > 0) {
 			$this->sql .= ' WHERE ';
-			$where = array();
-			foreach ($this->where as $key => $arg) {
-				if (strstr($arg[1], 'FIND_IN_SET')) {
-					$where[] = ($key > 0 ? $arg[3] : null) . $arg[1];
+			foreach($this->where as $key => $val) {
+				if($key == 0) {
+					if($val['mark'] == ' IN ' || $val['mark'] == ' NOT IN ') 
+						$this->sql .= $val['column'] . $val['mark'] . $val['value'] . ' ';
+					else
+						$this->sql .= $val['column'] . $val['mark'] . $this->escape($val['value']) . ' ';
 				} else {
-					$where[] = ($key > 0 ? $arg[3] : null) . ' `' . $arg[0] . '` ' . strtoupper($arg[2]) . ' ' . (strstr($arg[2], 'IN') ? '(' : '"') . $arg[1] . (strstr($arg[2], 'IN') ? ')' : '"');
+					if($val['mark'] == ' IN ' || $val['mark'] == ' NOT IN ') 
+						$this->sql .= $val['logic'] . ' ' . $val['column'] . $val['mark'] . $val['value'] . ' ';
+					else
+						$this->sql .= $val['logic'] . ' ' . $val['column'] . $val['mark'] . $this->escape($val['value']) . ' ';
 				}
 			}
-			$this->sql .= implode(' ', $where);
-			$this->where = null;
+			$this->sql = rtrim($this->sql);
 		}
-	}
 
-	/**
-	 * Used for insert operation
-	 *
-	 * @param	$tableName
-	 * @return 	$this
-	 */
-	public function insert($tableName)
-	{
-		$this->sql = 'INSERT INTO ' . $tableName;
-		return $this;
-	}
-
-	/**
-	 * Used for setting data at insert operation.
-	 *
-	 * @param	$columns
-	 * @return 	bool
-	 */
-	public function set($columns)
-	{
-		$val = array();
-		$col = array();
-		foreach ($columns as $column => $value) {
-			$val[] = $value;
-			$col[] = $column . ' = ? ';
+		// GROUP BY
+		if(!is_null($this->group_by)) {
+			$this->sql .= $this->group_by;
 		}
-		$this->sql .= ' SET ' . implode(', ', $col);
-		$this->get_where();
-		$query = $this->prepare($this->sql);
-		$result = $query->execute($val);
-		return $result;
-	}
 
-	/**
-	 * Returns last added Id.
-	 *
-	 * @return string
-	 */
-	public function lastId()
-	{
-		return $this->lastInsertId();
-	}
-
-	/**
-	 * Used for update operation.
-	 *
-	 * @param	$columnName
-	 * @return 	$this
-	 */
-	public function update($columnName)
-	{
-		$this->sql = 'UPDATE ' . $columnName;
-		return $this;
-	}
-
-	/**
-	 * Used for Delete operation
-	 *
-	 * @param	$columnName
-	 * @return 	$this
-	 */
-	public function delete($columnName)
-	{
-		$this->sql = 'DELETE FROM ' . $columnName;
-		return $this;
-	}
-
-	/**
-	 * Used to complete delete operation.
-	 *
-	 * @return int
-	 */
-	public function done()
-	{
-		$this->get_where();
-		$query = $this->exec($this->sql);
-		return $query;
-	}
-
-	/**
-	 * Returns total result with -total- table name.
-	 *
-	 * @return mixed
-	 */
-	public function total()
-	{
-		if ($this->join) {
-			$this->sql .= implode(' ', $this->join);
-			$this->join = null;
+		// HAVING
+		if(count($this->having) > 0) {
+			$this->sql .= ' HAVING ';
+			foreach($this->having as $key => $val) {
+				if($key == 0) {
+					$this->sql .= $val['column'] . $val['mark'] . $this->escape($val['value']) . ' ';
+				} else {
+					$this->sql .= $val['logic'] . ' ' . $val['column'] . $val['mark'] . $this->escape($val['value']) . ' ';
+				}
+			}
+			$this->sql = rtrim($this->sql);
 		}
-		$this->get_where();
-		if ($this->orderBy) {
-			$this->sql .= $this->orderBy;
-			$this->orderBy = null;
+
+		// ORDER BY
+		if(count($this->order_by) > 0) {
+			$this->sql .= ' ORDER BY ';
+			foreach($this->order_by as $key => $val) {
+				$this->sql .= $val['column'] . ' ' . $val['sort'] . ', ';
+			}
+			$this->sql = rtrim($this->sql, ', ');
 		}
-		if ($this->groupBy) {
-			$this->sql .= $this->groupBy;
-			$this->groupBy = null;
-		}
-		if ($this->limit) {
+
+		// LIMIT
+		if(!is_null($this->limit)) {
 			$this->sql .= $this->limit;
-			$this->limit = null;
 		}
-		$query = $this->query($this->sql)->fetch(parent::FETCH_OBJ);
-		return $query['total'];
 	}
 
 	/**
-	 * Returns pagination start and limit values.
-	 *
-	 * @param	$totalRecord
-	 * @param	$paginationLimit
-	 * @param	$pageParamName
-	 * @return 	array
+	 * Fetch one row
+	 * @param 	$fetch
+	 * @return 	array|object
 	 */
-	public function pagination($totalRecord, $paginationLimit, $pageParamName)
+	public function row($fetch = 'object')
 	{
-		$this->paginationLimit = $paginationLimit;
-		$this->page = isset($_GET[$pageParamName]) && is_numeric($_GET[$pageParamName]) ? $_GET[$pageParamName] : 1;
-		$this->totalRecord = $totalRecord;
-		$this->pageCount = ceil($this->totalRecord / $this->paginationLimit);
-		$start = ($this->page * $this->paginationLimit) - $this->paginationLimit;
-		return array(
-			'start' => $start,
-			'limit' => $this->paginationLimit
-		);
+		// Run Query
+		$query = $this->pdo->query($this->sql);
+
+		try
+		{
+			if($fetch == 'array')
+				$row = $query->fetch(\PDO::FETCH_ASSOC);
+			else
+				$row = $query->fetch(\PDO::FETCH_OBJ);
+
+			// Reset
+			$this->reset();
+
+			return $row;
+		}
+		catch(\PDOException $e)
+		{
+			$this->error($e->getMessage());
+		}
 	}
 
 	/**
-	 * Returns pagination
-	 *
-	 * @param	$url
+	 * Fetch multi-rows
+	 * @param 	$fetch
+	 * @return 	array|object
+	 */
+	public function results($fetch = 'object')
+	{
+		// Run Query
+		$query = $this->pdo->query($this->sql);
+
+		try
+		{
+			// Fetch
+			if($fetch == 'array')
+				$result = $query->fetchAll(\PDO::FETCH_ASSOC);
+			else
+				$result = $query->fetchAll(\PDO::FETCH_OBJ);
+
+			// Row Count
+			$this->num_rows = $query->rowCount();
+
+			// Reset
+			$this->reset();
+
+			return $result;
+		}
+		catch(\PDOException $e)
+		{
+			$this->error($e->getMessage());
+		}
+	}
+
+	/**
+	 * Execute custom query
+	 * @param 	$query
+	 * @param 	$fetch
 	 * @return 	mixed
 	 */
-	public function showPagination($url, $class = 'active')
+	public function query($query, $fetch = 'object')
 	{
-		if ($this->totalRecord > $this->paginationLimit) {
-			for ($i = $this->page - 5; $i < $this->page + 5 + 1; $i ++) {
-				if ($i > 0 && $i <= $this->pageCount) {
-					$this->html .= '<li class="';
-					$this->html .= ($i == $this->page ? $class : null);
-					$this->html .= '"><a href="' . str_replace('[page]', $i, $url) . '">' . $i . '</a>';
-				}
+		$str = stristr($query, 'SELECT');
+		if($str) {
+			$this->sql = $query;
+			return $this;
+		} else {
+			$this->statement = $query;
+
+			$run = $this->pdo->query($query);
+			if(!$run) {
+				$this->error($this->pdo->errorInfo()[2]);
+			} else {
+				return $run;
 			}
-			return $this->html;
 		}
 	}
 
 	/**
-	 * Returns next page at pagination operation.
-	 *
-	 * @return bool
+	 * Prepare and run 'SELECT' query
+	 * @param 	$table
+	 * @return 	$this
 	 */
-	public function nextPage()
+	public function get($table = null)
 	{
-		return ($this->page + 1 < $this->pageCount ? $this->page + 1 : $this->pageCount);
+		if(is_null($table))
+			$this->sql = 'SELECT ' . $this->select . ' FROM ' . $this->from;
+		else
+			$this->sql = 'SELECT ' . $this->select . ' FROM ' . $this->prefix . $table;
+
+		$this->run();
+
+		return $this;
 	}
 
 	/**
-	 * Returns previous page at pagination operation.
-	 *
-	 * @return bool
+	 * Insert operation
+	 * @param 	$table
+	 * @param 	$data
+	 * @return 	mixed
 	 */
-	public function prevPage()
+	public function insert($table, $data = [])
 	{
-		return ($this->page - 1 > 0 ? $this->page - 1 : 1);
+		$this->sql = 'INSERT INTO ' . $this->prefix . $table . ' SET ';
+
+		$col 	= [];
+		$val 	= [];
+		$stmt 	= [];
+		foreach($data as $column => $value) {
+			$val[] 	= $value;
+			$col[] 	= $column . ' = ? ';
+			$stmt[] = $column . '=' . $this->escape($value);
+		}
+
+		$this->statement = $this->sql . implode(', ', $stmt);
+		$this->sql .= implode(',', $col);
+
+		try
+		{
+			$query 				= $this->pdo->prepare($this->sql);
+			$insert 			= $query->execute($val);
+			$this->insert_id 	= $this->pdo->lastInsertId();
+			return $insert;
+		}
+		catch(\PDOException $e)
+		{
+			$this->error($e->getMessage());
+		}
 	}
 
 	/**
-	 * Returns SQL query as string.
-	 *
-	 * @return mixed
+	 * Update operation
+	 * @param 	$table
+	 * @param 	$data
+	 * @return 	mixed
 	 */
-	public function getSqlString()
+	public function update($table, $data = [])
 	{
-		return $this->sql;
+		$this->sql = 'UPDATE ' . $this->prefix . $table . ' SET ';
+
+		$col 	= [];
+		$val 	= [];
+		$stmt 	= [];
+		foreach($data as $column => $value) {
+			$val[] 	= $value;
+			$col[] 	= $column . ' = ? ';
+			$stmt[]	= $column . '=' . $this->escape($value);
+		}
+
+		$this->statement = $this->sql . implode(', ', $stmt);
+		$this->sql .= implode(',', $col);
+
+		// WHERE
+		if(count($this->where) > 0) {
+			$this->sql 			.= ' WHERE ';
+			$this->statement 	.= ' WHERE ';
+			foreach($this->where as $key => $value) {
+				if($key == 0) {
+					$this->statement 	.= $value['column'] . $value['mark'] . $this->escape($value['value']) . ' ';
+					$this->sql 			.= $value['column'] . $value['mark'] . '? ';
+				} else {
+					$this->statement 	.= $value['logic'] . ' ' .$value['column'] . $value['mark'] . $this->escape($value['value']) . ' ';
+					$this->sql 			.= $value['logic'] . ' ' . $value['column'] . $value['mark'] . '? ';
+				}
+				$val[] = $value['value'];
+			}
+			$this->sql 			= rtrim($this->sql);
+			$this->statement 	= rtrim($this->statement);
+		}
+
+		try
+		{
+			$query 		= $this->pdo->prepare($this->sql);
+			$update 	= $query->execute($val);
+			return $update;
+		}
+		catch(\PDOException $e)
+		{
+			$this->error($e->getMessage());
+		}
 	}
+
+	/**
+	 * Delete operation
+	 * @param 	$table
+	 * @return 	mixed
+	 */
+	public function delete($table)
+	{
+		$this->sql = 'DELETE FROM ' . $this->prefix . $table;
+
+		// WHERE
+		if(count($this->where) > 0) {
+			$this->sql 			.= ' WHERE ';
+			$this->statement 	= $this->sql;
+			foreach($this->where as $key => $value) {
+				if($key == 0) {
+					$this->statement 	.= $value['column'] . $value['mark'] . $this->escape($value['value']) . ' ';
+					$this->sql 			.= $value['column'] . $value['mark'] . '? ';
+				} else {
+					$this->statement 	.= $value['logic'] . ' ' .$value['column'] . $value['mark'] . $this->escape($value['value']) . ' ';
+					$this->sql 			.= $value['logic'] . ' ' . $value['column'] . $value['mark'] . '? ';
+				}
+				$val[] = $value['value'];
+			}
+			$this->sql 			= rtrim($this->sql);
+			$this->statement 	= rtrim($this->statement);
+		}
+
+		try
+		{
+			$query 	= $this->pdo->prepare($this->sql);
+			$delete = $query->execute($val);
+			return $delete;
+		}
+		catch(\PDOException $e)
+		{
+			$this->error($e->getMessage());
+		}
+	}
+
+	/**
+	 * Returns id of last inserted row
+	 * @return 	int
+	 */
+	public function insert_id()
+	{
+		return $this->insert_id;
+	}
+
+	/**
+	 * Returns number of rows
+	 * @return 	int
+	 */
+	public function num_rows()
+	{
+		return $this->num_rows;
+	}
+
+	/**
+	 * Returns last executed sql statement
+	 * @return 	string
+	 */
+	public function last_query()
+	{
+		if(is_null($this->statement))
+			return $this->sql;
+		else
+			return $this->statement;
+	}
+
+	/**
+	 * Escape data for where operation
+	 * @param 	$data
+	 * @return 	string
+	 */
+	private function escape($data)
+	{
+		return $this->pdo->quote(trim($data));
+	}
+
+	/**
+	 * Reset variables
+	 * @return 	void
+	 */
+	private function reset()
+	{
+		$this->where 		= [];
+		$this->join 		= [];
+		$this->order_by 	= [];
+		$this->having 		= [];
+		$this->insert_id 	= null;
+		$this->error 		= null;
+		return;
+	}
+
+	/**
+	 * Return Errors
+	 * @param 	$message
+	 * @return 	string
+	 */
+	public function error($message = null)
+	{
+		$err 	= '<div style="border: 1px solid #ccc; padding: 10px;">'
+				. '<p>DB HATASI: </p>'
+				. '<p><b>SORGU:</b> "' . $this->last_query() . '"</p>'
+				. '<p><b>HATA:</b> ' . $message . '</p>'
+				. '</div>';
+
+		die($err);
+	}
+
+	function __destruct()
+	{
+		$this->pdo = null;
+	}
+
 }
