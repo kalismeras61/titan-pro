@@ -2,6 +2,7 @@
 namespace Titan\Models;
 
 use Titan\Core\Import;
+use Titan\Plugins\Database;
 
 class Model
 {
@@ -9,7 +10,13 @@ class Model
 
     public function __construct()
     {
+    	// Including database configurations
         $db_config  = Import::Config('database');
-        $this->db   = Import::Plugin('database', $db_config);
+        
+        // Importing database plugin
+        Import::Plugin('database', $db_config);
+
+        // Initializing database plugin
+        $this->db = Database::init($db_config);
     }
 }

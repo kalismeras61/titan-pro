@@ -52,6 +52,19 @@ class Database
 	// Error
 	private $error 		= null;
 
+	// Instance
+	private static $instance;
+
+	// Getting instance
+	public static function init($config = [])
+	{
+		if (null === static::$instance) {
+			static::$instance = new static($config);
+		}
+
+		return self::$instance;
+	}
+
 	function __construct($config = [])
 	{
 		$config['db_driver'] 		= (@$config['db_driver']) ? $config['db_driver'] : 'mysql';
@@ -730,6 +743,10 @@ class Database
 
 		die($err);
 	}
+
+	private function __clone()
+    {
+    }
 
 	function __destruct()
 	{
